@@ -1,0 +1,207 @@
+{
+  "info": {
+    "_postman_id": "ba3d86bb-a393-4cc6-bfd0-d274b6d52d47",
+    "name": "NonLoyalty",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "2002207",
+    "_collection_link": "https://go.postman.co/collection/2002207-ba3d86bb-a393-4cc6-bfd0-d274b6d52d47?source=collection_link"
+  },
+  "item": [
+    {
+      "name": "NonMembercommit",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "if (pm.response.code === 200) {",
+              "    let jsonData = pm.response.json();",
+              "    if (jsonData.receiptNo) {",
+              "        // Save the access_token into a Postman variable",
+              "        pm.environment.set(\"receiptNo\", jsonData.receiptNo);",
+              "        pm.environment.set(\"reqId\", jsonData.reqId);",
+              "",
+              "        console.log(\"memberId saved to environment variable 'memberId':\", jsonData.memberId);",
+              "    } else {",
+              "        console.error(\"Access token not found in response\");",
+              "    }",
+              "} else {",
+              "    console.error(\"Request failed with status code:\", pm.response.code);",
+              "}"
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        },
+        {
+          "listen": "prerequest",
+          "script": {
+            "exec": [
+              "//pm.globals.set(\"current_datetime\", '2024-06-03 18:09:42')",
+              "function generateRandomString(length) {",
+              "    let characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';",
+              "    let result = '';",
+              "    for (let i = 0; i < length; i++) {",
+              "        result += characters.charAt(Math.floor(Math.random() * characters.length));",
+              "    }",
+              "    return result;",
+              "}",
+              "",
+              "// Set the random string as an environment variable",
+              "pm.environment.set(\"randomString\", generateRandomString(10)); // Replace 10 with desired length",
+              "var moment = require('moment')",
+              " pm.globals.set(\"current_datetime\", moment().format(\"YYYY-MM-DD HH:MM:SS\"))"
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "bearer {{token}}",
+            "type": "text"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": " {\n    \"reqId\": \"{{randomString}}\",\n   \"storeId\": \"{{storeId}}\",\n   \"terminalId\": \"1\",\n   \"receiptNo\": \"{{randomString}}\",\n   \"reqTimeStamp\": \"{{current_datetime}}\",\n   \"cashierId\": \"EMP001\",\n   \"channel\": \"POS\",\n   \"commitRequestType\": \"Complete\",\n   \"txnDate\": \"{{current_datetime}}\",\n   \"customerDetails\": {\n       \"firstName\": \"MAHESH\",\n       \"lastName\": \"Sudha\",\n       \"mobileCountryCode\": \"KW\",\n       \"mobileNumber\": \"965\"\n   },\n   \"itemDetails\": [\n       {\n           \"lineNo\": 2,\n           \"itemType\": \"Product\",\n           \"sku\": \"153836\",\n           \"productName\": \"Product Name\",\n           \"specification\": \"Product Description\",\n           \"markDownFlag\": \"Yes\",\n           \"quantity\": 1,\n           \"grossPrice\": 300.10,\n           \"discountAmount\": 0.00,\n           \"netPrice\": 300.75,\n           \"vatAmount\": 12.25,\n           \"concept\": \"BFL\",\n           \"brand\": \"ADIDAS\",\n           \"department\": \"BFL MEN SHOES\",\n           \"division\": \"SHOES\"\n       }\n   ],\n   \"tenderDetails\": [\n       {\n           \"code\": \"T1\",\n           \"amount\": 300.00\n       }\n   ]\n}\n",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/rprest/api/transaction/guest/v1/commitTransaction",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "rprest",
+            "api",
+            "transaction",
+            "guest",
+            "v1",
+            "commitTransaction"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "NonCouponcommit",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "exec": [
+              "//pm.globals.set(\"current_datetime\", '2024-06-03 18:09:42')",
+              "function generateRandomString(length) {",
+              "    let characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';",
+              "    let result = '';",
+              "    for (let i = 0; i < length; i++) {",
+              "        result += characters.charAt(Math.floor(Math.random() * characters.length));",
+              "    }",
+              "    return result;",
+              "}",
+              "",
+              "// Set the random string as an environment variable",
+              "pm.environment.set(\"randomString\", generateRandomString(10)); // Replace 10 with desired length",
+              "var moment = require('moment')",
+              " pm.globals.set(\"current_datetime\", moment().format(\"YYYY-MM-DD HH:MM:SS\"))"
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "bearer {{token}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "\n{\n\"reqId\": \"{{randomString}}\",\n\"storeId\": \"{{storeId}}\",\n\"terminalId\": \"1\",\n\"receiptNo\": \"{{randomString}}\",\n\"reqTimeStamp\": \"2025-01-23 13:01:65\",\n\"cashierId\": \"EMP001\",\n\"channel\": \"POS\",\n\"commitRequestType\": \"Complete\",\n\"txnDate\": \"{{current_datetime}}\",\n\"couponCodes\": [\"GET40FORFIRSTORD_1760\"],\n\"customerDetails\":\n\n{ \"firstName\": \"Mahesh\", \"lastName\": \"B\", \"mobileCountryCode\": \"IN\", \"mobileNumber\": \"918050656256\" }\n,\n\"itemDetails\": [\n\n{ \"lineNo\": 1, \"itemType\": \"Product\", \"sku\": \"SKU123973948459\", \"productName\": \"Product Name\", \"hsnCode\": \"12\", \"specification\": \"Product Description\", \"markDownFlag\": \"Yes\", \"quantity\": 1, \"grossPrice\": 6000.00, \"discountAmount\": 0.00, \"netPrice\": 5084.75, \"vatAmount\": 915.25, \"concept\": \"BFL\", \"brand\": \"ADIDAS\", \"department\": \"BFL MEN SHOES\", \"division\": \"SHOES\" }\n]\n,\"tenderDetails\": [\n\n{ \"code\": \"T1\", \"amount\": 500.00 }\n]\n}\n",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "https://bfl-uat-pos.reciproci.com/rprest/api/transaction/guest/v1/commitTransaction",
+          "protocol": "https",
+          "host": [
+            "bfl-uat-pos",
+            "reciproci",
+            "com"
+          ],
+          "path": [
+            "rprest",
+            "api",
+            "transaction",
+            "guest",
+            "v1",
+            "commitTransaction"
+          ]
+        },
+        "description": "Generated from cURL: curl --location 'https://bfl-uat-pos.reciproci.com//rprest/api/transaction/guest/v1/commitTransaction' \\\n--header 'Content-Type: application/json' \\\n--header 'Authorization: bearer0380e93e-ac77-4ccf-92e5-4762efdfceb9' \\\n--header 'Accept: application/json' \\\n--data '\n{\n\"reqId\": \"BFLINU4ddfdsgdsj43636\",\n\"storeId\": \"BFL01\",\n\"terminalId\": \"1\",\n\"receiptNo\": \"BFLINUd4ddfgsdsj43636\",\n\"reqTimeStamp\": \"2025-01-23 13:01:65\",\n\"cashierId\": \"EMP001\",\n\"channel\": \"POS\",\n\"commitRequestType\": \"Complete\",\n\"txnDate\": \"2025-01-23 13:01:65\",\n\"couponCodes\": [\"sfdhsgfgjdsgf\"],\n\"customerDetails\":\n\n{ \"firstName\": \"shubham\", \"lastName\": \"patil\", \"mobileCountryCode\": \"IN\", \"mobileNumber\": \"916326456789\" }\n,\n\"itemDetails\": [\n\n{ \"lineNo\": 1, \"itemType\": \"Product\", \"sku\": \"SKU123973948459\", \"productName\": \"Product Name\", \"hsnCode\": \"12\", \"specification\": \"Product Description\", \"markDownFlag\": \"Yes\", \"quantity\": 1, \"grossPrice\": 6000.00, \"discountAmount\": 0.00, \"netPrice\": 5084.75, \"vatAmount\": 915.25, \"concept\": \"BFL\", \"brand\": \"ADIDAS\", \"department\": \"BFL MEN SHOES\", \"division\": \"SHOES\" }\n]\n,\"tenderDetails\": [\n\n{ \"code\": \"T1\", \"amount\": 500.00 }\n]\n}\n'"
+      },
+      "response": []
+    },
+    {
+      "name": "wc",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "wc",
+          "host": [
+            "wc"
+          ]
+        },
+        "description": "Generated from cURL: curl -sk https://viyagolf-api-uat.reciproci.com/v2/api-docs -o api-spec.json wc -c api-spec.json"
+      },
+      "response": []
+    },
+    {
+      "name": "wc",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "wc",
+          "host": [
+            "wc"
+          ]
+        },
+        "description": "Generated from cURL: curl -sk https://viyagolf-api-uat.reciproci.com/v2/api-docs -o api-spec.json wc -c api-spec.json"
+      },
+      "response": []
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx playwright *)",
+      "Bash(npx --version)",
+      "Bash(node *)",
+      "Bash(npx jest *)",
+      "Bash(python3 -m pip install openpyxl --quiet)",
+      "Bash(python3 *)",
+      "Read(//tmp/**)",
+      "Bash(libreoffice --headless --convert-to csv:/tmp/output.csv --outdir /tmp \"/home/maheshwarab/Automation/testCasesXLSX/BFL_Complete_TestCases_v2.xlsx\")",
+      "Bash(unzip -q \"/home/maheshwarab/Automation/testCasesXLSX/BFL_Complete_TestCases_v2.xlsx\")"
+    ]
+  }
+}

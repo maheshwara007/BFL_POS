@@ -1,0 +1,37 @@
+{
+  "name": "playwright-pom-framework",
+  "version": "1.0.0",
+  "description": "Playwright TypeScript POM Automation Framework",
+  "scripts": {
+    "test": "npx playwright test",
+    "test:headed": "npx playwright test --headed",
+    "test:debug": "npx playwright test --debug",
+    "test:ui": "npx playwright test --ui",
+    "test:chrome": "npx playwright test --project=chromium",
+    "test:firefox": "npx playwright test --project=firefox",
+    "test:webkit": "npx playwright test --project=webkit",
+    "report": "npx playwright show-report reports/html-report",
+    "lint": "npx tsc --noEmit",
+    "test:api": "jest --config jest.config.ts",
+    "test:api:apple-wallet": "jest --config jest.config.ts --testPathPatterns='apple-wallet'",
+    "test:api:pos": "jest --config jest.config.ts --testPathPatterns='pos-'",
+    "test:api:web": "jest --config jest.config.ts --testPathPatterns='web-'",
+    "test:api:guest": "jest --config jest.config.ts --testPathPatterns='guest'",
+    "test:api:negative": "jest --config jest.config.ts --testPathPatterns='negative'",
+    "test:api:verbose": "jest --config jest.config.ts --verbose"
+  },
+  "devDependencies": {
+    "@faker-js/faker": "^8.4.1",
+    "@playwright/test": "^1.44.0",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^20.12.7",
+    "dotenv": "^16.4.5",
+    "faker": "^6.6.6",
+    "jest": "^30.4.2",
+    "jest-html-reporter": "^4.4.0",
+    "ts-jest": "^29.4.11",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.5",
+    "xlsx": "^0.18.5"
+  }
+}
