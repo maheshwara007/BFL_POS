@@ -1,7 +1,22 @@
 import { post, getToken, isMember, commitBody, rnd, now, STORE_ID, POS_MOBILE } from './helpers';
 import { calcExpectedEarn, makeItem, TENDER, TD } from './test-data';
+import { appendApiLog, generateApiHtmlReport } from './api-report-logger';
 
 const ctx: any = {};
+
+// Log every business API call; accumulates into the shared log for the combined report
+function logApiCall(endpoint: string, requestBody: object, res: { status: number; body: any }): void {
+  const testName = (expect as any).getState()?.currentTestName ?? 'Unknown Test';
+  appendApiLog({ testName, endpoint, httpStatus: res.status, request: requestBody, response: res.body });
+}
+
+async function loggedPost(endpoint: string, body: object, token?: string) {
+  const res = await post(endpoint, body, token);
+  logApiCall(endpoint, body, res);
+  return res;
+}
+
+afterAll(() => generateApiHtmlReport());
 
 describe('Redemption Validation', () => {
   beforeAll(async () => {
@@ -15,26 +30,27 @@ describe('Redemption Validation', () => {
     const id = rnd();
 
     // OTP step (required before block on POS)
-    const sendRes = await post('/rprest/api/transaction/v1/send/otp', {
+    const sendRes = await loggedPost('/rprest/api/transaction/v1/send/otp', {
       reqId: `v${id}`, storeId: STORE_ID, terminalId: '1', receiptNo: `v${id}`,
       reqTimeStamp: now(), cashierId: 'EMP001', channel: 'POS', country: 'IN',
       mobileNumber: POS_MOBILE, memberId: '', language: 'EN', notificationChannel: 'SMS',
     }, ctx.token);
     if (sendRes.status !== 200) { console.warn('OTP rate limit — skipping RED-TC-001'); return; }
 
-    await post('/rprest/api/transaction/v1/profile', {
+    await loggedPost('/rprest/api/transaction/v1/profile', {
       reqId: sendRes.body.reqId || `v${id}`, storeId: STORE_ID, terminalId: '1',
       receiptNo: sendRes.body.receiptNo || `v${id}`, reqTimeStamp: now(),
-      cashierId: 'EMP001', channel: 'POS', language: 'EN', dateOfBirth: '1990-01-01',
+      cashierId: 'EMP001', channel: 'POS', language: 'EN',
       firstName: 'RedTest', lastName: 'User', mobileNumber: POS_MOBILE,
       emailId: 'red@example.com', gender: 'Male', country: 'IN', city: '',
       nationality: 'IN', otp: '1111', mobileCountryCode: 'IN', requestType: 'Update',
+      // dateOfBirth omitted — API rejects update if DOB was already set
     }, ctx.token);
 
     const before = await isMember(ctx.token, POS_MOBILE, 'POS');
 
     const blockId = rnd();
-    const blockRes = await post('/rprest/api/transaction/v1/blockunblockwalletandpoints', {
+    const blockRes = await loggedPost('/rprest/api/transaction/v1/blockunblockwalletandpoints', {
       reqId: `BFLINB${blockId}`, storeId: before.storeId, terminalId: '1',
       receiptNo: `BFLINB${blockId}`, reqTimeStamp: now(), cashierId: 'EMP001',
       channel: 'POS', memberId: before.memberId, blockReqType: 'BLOCK',
@@ -45,7 +61,7 @@ describe('Redemption Validation', () => {
 
     const id2 = rnd();
     const items = [makeItem({ lineNo: 1, grossPrice: d.grossPrice, netPrice: d.netPrice, vatAmount: d.vatAmount })];
-    const commitRes = await post('/rprest/api/transaction/v1/commitTransaction',
+    const commitRes = await loggedPost('/rprest/api/transaction/v1/commitTransaction',
       commitBody({ id: id2, storeId: before.storeId, memberId: before.memberId, channel: 'POS', items,
         tenderDetails: [{ code: TENDER.POINTS, amount: d.tenderPoints }, { code: TENDER.CASH, amount: d.tenderCash }] }),
       ctx.token);
@@ -63,26 +79,27 @@ describe('Redemption Validation', () => {
     const d = TD.RED_TC002;
     const id = rnd();
 
-    const sendRes = await post('/rprest/api/transaction/v1/send/otp', {
+    const sendRes = await loggedPost('/rprest/api/transaction/v1/send/otp', {
       reqId: `v${id}`, storeId: STORE_ID, terminalId: '1', receiptNo: `v${id}`,
       reqTimeStamp: now(), cashierId: 'EMP001', channel: 'POS', country: 'IN',
       mobileNumber: POS_MOBILE, memberId: '', language: 'EN', notificationChannel: 'SMS',
     }, ctx.token);
     if (sendRes.status !== 200) { console.warn('OTP rate limit — skipping RED-TC-002'); return; }
 
-    await post('/rprest/api/transaction/v1/profile', {
+    await loggedPost('/rprest/api/transaction/v1/profile', {
       reqId: sendRes.body.reqId || `v${id}`, storeId: STORE_ID, terminalId: '1',
       receiptNo: sendRes.body.receiptNo || `v${id}`, reqTimeStamp: now(),
-      cashierId: 'EMP001', channel: 'POS', language: 'EN', dateOfBirth: '1990-01-01',
+      cashierId: 'EMP001', channel: 'POS', language: 'EN',
       firstName: 'RedTest', lastName: 'User', mobileNumber: POS_MOBILE,
       emailId: 'red@example.com', gender: 'Male', country: 'IN', city: '',
       nationality: 'IN', otp: '1111', mobileCountryCode: 'IN', requestType: 'Update',
+      // dateOfBirth omitted — API rejects update if DOB was already set
     }, ctx.token);
 
     const before = await isMember(ctx.token, POS_MOBILE, 'POS');
 
     const blockId = rnd();
-    const blockRes = await post('/rprest/api/transaction/v1/blockunblockwalletandpoints', {
+    const blockRes = await loggedPost('/rprest/api/transaction/v1/blockunblockwalletandpoints', {
       reqId: `BFLINB${blockId}`, storeId: before.storeId, terminalId: '1',
       receiptNo: `BFLINB${blockId}`, reqTimeStamp: now(), cashierId: 'EMP001',
       channel: 'POS', memberId: before.memberId, blockReqType: 'BLOCK',
@@ -93,15 +110,13 @@ describe('Redemption Validation', () => {
 
     const id2 = rnd();
     const items = [makeItem({ lineNo: 1, grossPrice: d.grossPrice, netPrice: d.netPrice, vatAmount: d.vatAmount })];
-    const commitRes = await post('/rprest/api/transaction/v1/commitTransaction',
+    const commitRes = await loggedPost('/rprest/api/transaction/v1/commitTransaction',
       commitBody({ id: id2, storeId: before.storeId, memberId: before.memberId, channel: 'POS', items,
         tenderDetails: [{ code: TENDER.WALLET, amount: d.tenderWallet }, { code: TENDER.CASH, amount: d.tenderCash }] }),
       ctx.token);
     expect(commitRes.status).toBe(200);
     const after = await isMember(ctx.token, POS_MOBILE, 'POS');
-    // Wallet must be reduced by exactly blockWallet
     expect(after.walletBalance).toBe(before.walletBalance - d.blockWallet);
-    // Points must NOT be affected by wallet redemption
     const pointsDelta = after.points - before.points;
     expect(pointsDelta).toBe(calcExpectedEarn(d.netPrice, d.vatAmount, before.tier));
     console.log(`RED-TC-002 | Wallet before: ${before.walletBalance} after: ${after.walletBalance} | Deducted: ${d.blockWallet}`);
@@ -112,27 +127,27 @@ describe('Redemption Validation', () => {
     const d = TD.RED_TC003;
     const id = rnd();
 
-    const sendRes = await post('/rprest/api/transaction/v1/send/otp', {
+    const sendRes = await loggedPost('/rprest/api/transaction/v1/send/otp', {
       reqId: `v${id}`, storeId: STORE_ID, terminalId: '1', receiptNo: `v${id}`,
       reqTimeStamp: now(), cashierId: 'EMP001', channel: 'POS', country: 'IN',
       mobileNumber: POS_MOBILE, memberId: '', language: 'EN', notificationChannel: 'SMS',
     }, ctx.token);
     if (sendRes.status !== 200) { console.warn('OTP rate limit — skipping RED-TC-003'); return; }
 
-    await post('/rprest/api/transaction/v1/profile', {
+    await loggedPost('/rprest/api/transaction/v1/profile', {
       reqId: sendRes.body.reqId || `v${id}`, storeId: STORE_ID, terminalId: '1',
       receiptNo: sendRes.body.receiptNo || `v${id}`, reqTimeStamp: now(),
-      cashierId: 'EMP001', channel: 'POS', language: 'EN', dateOfBirth: '1990-01-01',
+      cashierId: 'EMP001', channel: 'POS', language: 'EN',
       firstName: 'RedTest', lastName: 'User', mobileNumber: POS_MOBILE,
       emailId: 'red@example.com', gender: 'Male', country: 'IN', city: '',
       nationality: 'IN', otp: '1111', mobileCountryCode: 'IN', requestType: 'Update',
+      // dateOfBirth omitted — API rejects update if DOB was already set
     }, ctx.token);
 
     const baseline = await isMember(ctx.token, POS_MOBILE, 'POS');
 
-    // Block wallet and commit
     const blockId = rnd();
-    const blockRes = await post('/rprest/api/transaction/v1/blockunblockwalletandpoints', {
+    const blockRes = await loggedPost('/rprest/api/transaction/v1/blockunblockwalletandpoints', {
       reqId: `BFLINB${blockId}`, storeId: baseline.storeId, terminalId: '1',
       receiptNo: `BFLINB${blockId}`, reqTimeStamp: now(), cashierId: 'EMP001',
       channel: 'POS', memberId: baseline.memberId, blockReqType: 'BLOCK',
@@ -143,7 +158,7 @@ describe('Redemption Validation', () => {
 
     const id2 = rnd();
     const items = [makeItem({ lineNo: 1, grossPrice: d.grossPrice, netPrice: d.netPrice, vatAmount: d.vatAmount })];
-    const commitRes = await post('/rprest/api/transaction/v1/commitTransaction',
+    const commitRes = await loggedPost('/rprest/api/transaction/v1/commitTransaction',
       commitBody({ id: id2, storeId: baseline.storeId, memberId: baseline.memberId, channel: 'POS', items,
         tenderDetails: [{ code: TENDER.WALLET, amount: d.tenderWallet }, { code: TENDER.CASH, amount: d.tenderCash }] }),
       ctx.token);
@@ -154,13 +169,13 @@ describe('Redemption Validation', () => {
 
     // Return the transaction → wallet must be refunded
     const rId = rnd(); const eId = rnd();
-    await post('/rprest/api/transaction/v1/recallReceipt', {
+    await loggedPost('/rprest/api/transaction/v1/recallReceipt', {
       reqId: `BFLINR${rId}`, storeId: baseline.storeId, terminalId: '1',
       receiptNo: `BFLINR${rId}`, reqTimeStamp: now(), cashierId: 'EMP001',
       channel: 'POS', memberId: baseline.memberId,
       requestType: 'Recall Receipt', receiptToRecallNo: receiptNo,
     }, ctx.token);
-    await post('/rprest/api/transaction/v1/exchangeLine', {
+    await loggedPost('/rprest/api/transaction/v1/exchangeLine', {
       reqId: `BFLINR${eId}`, storeId: baseline.storeId, terminalId: '1',
       receiptNo: `BFLINR${eId}`, reqTimeStamp: now(), cashierId: 'EMP001',
       channel: 'POS', memberId: baseline.memberId,
@@ -171,7 +186,7 @@ describe('Redemption Validation', () => {
 
     const retId = rnd();
     const retItems = [makeItem({ lineNo: 2, grossPrice: d.grossPrice, netPrice: d.netPrice, vatAmount: d.vatAmount, previousLineNo: 1, isReturn: 'Yes' })];
-    const retRes = await post('/rprest/api/transaction/v1/commitTransaction',
+    const retRes = await loggedPost('/rprest/api/transaction/v1/commitTransaction',
       commitBody({ id: retId, storeId: baseline.storeId, memberId: baseline.memberId, channel: 'POS', items: retItems,
         tenderDetails: [{ code: TENDER.WALLET, amount: d.tenderWallet }, { code: TENDER.CASH, amount: d.tenderCash }],
         previousReceiptNo: receiptNo }),
@@ -188,7 +203,7 @@ describe('Redemption Validation', () => {
     const before = await isMember(ctx.token, POS_MOBILE, 'POS');
 
     const blockId = rnd();
-    const blockRes = await post('/rprest/api/transaction/v1/blockunblockwalletandpoints', {
+    const blockRes = await loggedPost('/rprest/api/transaction/v1/blockunblockwalletandpoints', {
       reqId: `BFLINB${blockId}`, storeId: before.storeId, terminalId: '1',
       receiptNo: `BFLINB${blockId}`, reqTimeStamp: now(), cashierId: 'EMP001',
       channel: 'POS', memberId: before.memberId, blockReqType: 'BLOCK',
@@ -197,8 +212,7 @@ describe('Redemption Validation', () => {
     expect([200, 400]).toContain(blockRes.status);
     if (blockRes.status !== 200) { console.warn('Insufficient pts to block — skipping RED-TC-004'); return; }
 
-    // Unblock using same reqId / receiptNo
-    const unblockRes = await post('/rprest/api/transaction/v1/blockunblockwalletandpoints', {
+    const unblockRes = await loggedPost('/rprest/api/transaction/v1/blockunblockwalletandpoints', {
       reqId: blockRes.body.reqId || `BFLINB${blockId}`,
       storeId: before.storeId, terminalId: '1',
       receiptNo: blockRes.body.receiptNo || `BFLINB${blockId}`,
@@ -209,7 +223,6 @@ describe('Redemption Validation', () => {
     expect(unblockRes.status).toBe(200);
 
     const after = await isMember(ctx.token, POS_MOBILE, 'POS');
-    // No commit happened — balance must be identical to before
     expect(after.points).toBe(before.points);
     expect(after.walletBalance).toBe(before.walletBalance);
     console.log(`RED-TC-004 | Points before: ${before.points} after unblock: ${after.points} (no change expected)`);

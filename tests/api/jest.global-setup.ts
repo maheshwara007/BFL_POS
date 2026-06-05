@@ -245,6 +245,11 @@ async function setupTierAccounts(
 
 // ── Global setup entry point ──────────────────────────────────────────────────
 export default async function globalSetup() {
+  // Clear the shared API log so all specs in this run accumulate into one report
+  const logPath = path.resolve(process.cwd(), 'reports/exchange-sale-api-log.json');
+  fs.mkdirSync(path.dirname(logPath), { recursive: true });
+  fs.writeFileSync(logPath, '[]', 'utf8');
+
   const BASE_URL = process.env.BASE_URL || 'https://bfl-uat-pos.reciproci.com';
   const STORE_ID = process.env.STORE_ID || 'BFL01';
   const USERNAME = process.env.API_USERNAME || 'admin';

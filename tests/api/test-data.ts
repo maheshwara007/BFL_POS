@@ -26,6 +26,7 @@ export const TENDER = {
   POINTS: 'T8',
   WALLET: 'TW01',
   CARD: 'T2',
+  CREDIT_NOTE: 'T32', // Paper Credit Note — used for net refund in Exchange Sale (§3.3.2)
 };
 
 // ---------------------------------------------------------------------------
@@ -308,5 +309,38 @@ export const TD = {
   EDGE_TC006: {
     grossPrice: 100.00, netPrice: 100.00, vatAmount: 5.00,
     tenderAmount: 105.00, markDownFlag: 'Yes' as 'Yes',
+  },
+
+  // ── Exchange Sale (EXL / EXC) ──────────────────────────────────────────────
+
+  // EXL-TC-001..007 – Single-item return (line 1 from a 200 AED purchase)
+  EXL_SINGLE_RETURN: {
+    purchaseGross: 200.00, purchaseNet: 190.00, purchaseVat: 10.00,
+    purchaseTender: 200.00,
+  },
+
+  // EXL-TC-002 – Multi-item return (2 lines)
+  EXL_MULTI_RETURN: {
+    item1: { grossPrice: 200.00, netPrice: 190.00, vatAmount: 10.00 },
+    item2: { grossPrice: 500.00, netPrice: 475.00, vatAmount: 25.00 },
+    purchaseTender: 700.00,
+  },
+
+  // EXC-TC-009 / §2.4 worked example from doc
+  // Return: 200 AED, totalRefundValue=3, net refund=197 → T32
+  // New purchase: 500 AED, cash due=303 → T1
+  EXC_WORKED_EXAMPLE: {
+    returnGross: 200.00, returnNet: 190.00, returnVat: 10.00,
+    newGross: 500.00,    newNet:  475.00,   newVat: 25.00,
+    expectedNetRefund: 197.00, expectedCash: 303.00,
+  },
+
+  // EXC-TC-011 – Multi-item exchange (2 returned + 2 new)
+  EXC_MULTI_EXCHANGE: {
+    return1: { grossPrice: 200.00, netPrice: 190.00, vatAmount: 10.00 },
+    return2: { grossPrice: 300.00, netPrice: 285.00, vatAmount: 15.00 },
+    new1:    { grossPrice: 400.00, netPrice: 380.00, vatAmount: 20.00 },
+    new2:    { grossPrice: 600.00, netPrice: 570.00, vatAmount: 30.00 },
+    newPurchaseTotal: 1000.00,
   },
 };
