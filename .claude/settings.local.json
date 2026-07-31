@@ -9,7 +9,22 @@
       "Bash(python3 *)",
       "Read(//tmp/**)",
       "Bash(libreoffice --headless --convert-to csv:/tmp/output.csv --outdir /tmp \"/home/maheshwarab/Automation/testCasesXLSX/BFL_Complete_TestCases_v2.xlsx\")",
-      "Bash(unzip -q \"/home/maheshwarab/Automation/testCasesXLSX/BFL_Complete_TestCases_v2.xlsx\")"
+      "Bash(unzip -q \"/home/maheshwarab/Automation/testCasesXLSX/BFL_Complete_TestCases_v2.xlsx\")",
+      "Bash(adb devices *)",
+      "Bash(appium --version)",
+      "Bash(curl -s http://127.0.0.1:4723/status)",
+      "Bash(mkdir -p /home/maheshwarab/GeekayAndroidAutomation/mobile_automation/locators)",
+      "Bash(appium --port 4723 --log-level info)",
+      "Bash(2>&1)",
+      "Bash(npx tsc *)",
+      "Bash(curl *)",
+      "Bash(npm run *)",
+      "Read(//home/maheshwarab/**)",
+      "Bash(clear *)",
+      "Bash(git add *)"
     ]
-  }
+  },
+  "disabledMcpjsonServers": [
+    "burpsuite"
+  ]
 }

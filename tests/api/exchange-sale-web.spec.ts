@@ -516,7 +516,9 @@ describe('WEB Commit Transaction — Exchange Sale (mixed isReturn Yes/No)', () 
     expect(excRes.status !== 200 || excRes.body.status !== 'Success').toBe(true);
   });
 
-  test('WEB-EXC-TC-007B: Exchange Sale — previousLineNo mismatch (API does not enforce, documents gap vs doc §3.3.1)', async () => {
+  test('WEB-EXC-TC-007B: Exchange Sale — previousLineNo mismatch must be rejected (doc §3.3.1)', async () => {
+    // Doc §3.3.1: a wrong previousLineNo MUST cause an error.
+    // previousReceiptNo is CORRECT; only previousLineNo is wrong (999 instead of 1).
     const receipt = await createWebPurchase(ctx.token, ctx.storeId, ctx.memberId,
       [defaultItem(1, { grossPrice: 200.00, netPrice: 190.00, vatAmount: 10.00 })], 200.00);
     await callWebExchangeLine(ctx.token, {
@@ -531,8 +533,9 @@ describe('WEB Commit Transaction — Exchange Sale (mixed isReturn Yes/No)', () 
     ];
     const excRes = await callWebCommit(webCommitBody(excId, ctx.storeId, ctx.memberId, excItems,
       [{ code: TENDER.CASH, amount: 500.00 }], receipt), ctx.token);
-    console.warn(`WEB-EXC-TC-007B | correct receipt + wrong lineNo(999) → HTTP ${excRes.status} status=${excRes.body?.status} | API does not validate previousLineNo`);
-    expect(excRes.status).toBe(200);
+
+    // Per doc §3.3.1, wrong previousLineNo must be rejected — expect non-200 or error status
+    expect(excRes.status).not.toBe(200);
   });
 
   test('WEB-EXC-TC-008: Exchange Sale — invalid previousReceiptNo in Commit → error', async () => {

@@ -79,11 +79,11 @@ export interface MemberCtx {
   tier: string;
 }
 
-export async function isMember(token: string, mobileNumber: string, channel = 'POS'): Promise<MemberCtx> {
+export async function isMember(token: string, mobileNumber: string, channel = 'POS', storeId: string = STORE_ID): Promise<MemberCtx> {
   const id = rnd();
   const { status, body } = await post('/rprest/api/transaction/v1/isMember', {
     reqId: `REQ${id}`,
-    storeId: STORE_ID,
+    storeId,
     terminalId: '1',
     receiptNo: `TXN${id}`,
     reqTimeStamp: now(),
@@ -96,7 +96,7 @@ export async function isMember(token: string, mobileNumber: string, channel = 'P
   if (status !== 200) throw new Error(`isMember failed: ${status} ${JSON.stringify(body)}`);
   return {
     memberId: body.memberDetails?.memberId,
-    storeId: body.storeId || STORE_ID,
+    storeId: body.storeId || storeId,
     mobileNumber: body.memberDetails?.mobileNumber || mobileNumber,
     points: body.memberDetails?.pointsSummary?.[0]?.points ?? 0,
     pointsValue: body.memberDetails?.pointsSummary?.[0]?.pointsValue ?? 0,

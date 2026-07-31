@@ -646,11 +646,9 @@ describe('Commit Transaction — Exchange Sale (mixed isReturn Yes/No)', () => {
     expect(isError).toBe(true);
   });
 
-  test('EXC-TC-007B: Exchange Sale — previousLineNo mismatch (API does not enforce, documents gap vs doc §3.3.1)', async () => {
-    // Doc §3.3.1: previousLineNo mismatch MUST cause an error.
-    // UAT observation: the API accepts it silently (returns 200 Success) when receipt is valid.
+  test('EXC-TC-007B: Exchange Sale — previousLineNo mismatch must be rejected (doc §3.3.1)', async () => {
+    // Doc §3.3.1: a wrong previousLineNo MUST cause an error.
     // previousReceiptNo is CORRECT; only previousLineNo is wrong (999 instead of 1).
-    // Result proves the API validates receipt but NOT line number.
     const purchaseReceipt = await createPurchase(
       ctx.token, ctx.storeId, ctx.memberId,
       [defaultItem(1, { grossPrice: 200.00, netPrice: 190.00, vatAmount: 10.00 })],
@@ -673,14 +671,13 @@ describe('Commit Transaction — Exchange Sale (mixed isReturn Yes/No)', () => {
       channel: 'POS', memberId: ctx.memberId, commitRequestType: 'Complete',
       txnDate: now(), couponCodes: [], language: 'EN',
       itemDetails: excItems,
-      previousReceiptNo: purchaseReceipt, // correct receipt
+      previousReceiptNo: purchaseReceipt,
       tenderDetails: [{ code: TENDER.CASH, amount: 500.00 }],
       billDetails: computeBillDetails(excItems, excId),
     }, ctx.token);
 
-    // API returns 200 despite wrong previousLineNo — validation gap vs documentation
-    console.warn(`EXC-TC-007B | correct receipt + wrong lineNo(999) → HTTP ${excRes.status} status=${excRes.body?.status} | API does not validate previousLineNo`);
-    expect(excRes.status).toBe(200);
+    // Per doc §3.3.1, wrong previousLineNo must be rejected — expect non-200 or error status
+    expect(excRes.status).not.toBe(200);
   });
 
   test('EXC-TC-008: Exchange Sale — invalid previousReceiptNo in Commit → error', async () => {
@@ -1028,18 +1025,21 @@ describe('Exchange Sale — totalRefundValue > 0 (points redeemed before return)
   });
 
   test('EXC-TC-016: POS — register new user → Txn A → OTP → redeem all Txn A points in Txn B → return Txn A → totalRefundValue > 0 and equals basePointsAccruedValue', async () => {
+    // Override storeId to ONLINE_IN for this scenario (blockunblockwalletandpoints requires it)
+    const storeId = 'ONLINE_IN';
+
     // ── Step 1: Register a brand-new POS member (clean slate, 0 points) ──────
     const mobile = '91' + String(7000000000 + Math.floor(Math.random() * 2999999999));
     const regId = rnd();
     const otpRegRes = await loggedPost('/rprest/api/transaction/v1/send/otp', {
-      reqId: `v${regId}`, storeId: ctx.member.storeId, terminalId: '1', receiptNo: `v${regId}`,
+      reqId: `v${regId}`, storeId, terminalId: '1', receiptNo: `v${regId}`,
       reqTimeStamp: now(), cashierId: 'EMP001', channel: 'POS', country: 'IN',
       mobileNumber: mobile, memberId: '', language: 'EN', notificationChannel: 'SMS',
     }, ctx.token);
     if (otpRegRes.status !== 200) { console.warn('EXC-TC-016: Registration OTP rate-limited — skipping'); return; }
 
     const profileRes = await loggedPost('/rprest/api/transaction/v1/profile', {
-      reqId: otpRegRes.body.reqId, storeId: ctx.member.storeId, terminalId: '1',
+      reqId: otpRegRes.body.reqId, storeId, terminalId: '1',
       receiptNo: otpRegRes.body.receiptNo, reqTimeStamp: now(),
       cashierId: 'EMP001', channel: 'POS', language: 'EN', dateOfBirth: '1995-06-15',
       firstName: 'EXC016', lastName: 'POSUser', mobileNumber: mobile,
@@ -1047,12 +1047,12 @@ describe('Exchange Sale — totalRefundValue > 0 (points redeemed before return)
       city: '', nationality: 'IN', otp: '1111', mobileCountryCode: 'IN', requestType: 'New',
     }, ctx.token);
     if (profileRes.status !== 200) { console.warn(`EXC-TC-016: Registration failed (${profileRes.status}) — skipping`); return; }
-    const newMember = await isMember(ctx.token, mobile, 'POS');
+    const newMember = await isMember(ctx.token, mobile, 'POS', storeId);
 
     // ── Step 2: Transaction A — purchase items, capture basePointsAccruedValue ─
     const txnAItems = [defaultItem(1, { grossPrice: 200.00, netPrice: 190.00, vatAmount: 10.00 })];
     const txnAId = rnd();
-    const txnABody = commitBody({ id: txnAId, storeId: newMember.storeId, memberId: newMember.memberId,
+    const txnABody = commitBody({ id: txnAId, storeId, memberId: newMember.memberId,
       channel: 'POS', items: txnAItems, tenderDetails: [{ code: TENDER.CASH, amount: 200.00 }] });
     const txnARes = await loggedPost('/rprest/api/transaction/v1/commitTransaction', txnABody, ctx.token);
     expect(txnARes.status).toBe(200);
@@ -1063,7 +1063,7 @@ describe('Exchange Sale — totalRefundValue > 0 (points redeemed before return)
     const expectedRefundValue: number = parseFloat((txnALine1?.basePointsAccruedValue ?? 0).toFixed(2));
     if (expectedRefundValue === 0) { console.warn('EXC-TC-016: Txn A earned 0 points — skipping'); return; }
 
-    const afterTxnA = await isMember(ctx.token, mobile, 'POS');
+    const afterTxnA = await isMember(ctx.token, mobile, 'POS', storeId);
     const totalPoints = afterTxnA.points;
     const pointsValue = parseFloat(afterTxnA.pointsValue.toFixed(2)); // AED monetary worth for block & T8
 
@@ -1072,7 +1072,7 @@ describe('Exchange Sale — totalRefundValue > 0 (points redeemed before return)
     const txnBId = rnd();
 
     const otpRedRes = await loggedPost('/rprest/api/transaction/v1/send/otp', {
-      reqId: `BFLIN${txnBId}`, storeId: newMember.storeId, terminalId: '1',
+      reqId: `BFLIN${txnBId}`, storeId, terminalId: '1',
       receiptNo: `BFLIN${txnBId}`, reqTimeStamp: now(), cashierId: 'EMP001', channel: 'POS',
       country: 'IN', mobileNumber: mobile, memberId: '', language: 'EN', notificationChannel: 'SMS',
     }, ctx.token);
@@ -1080,7 +1080,7 @@ describe('Exchange Sale — totalRefundValue > 0 (points redeemed before return)
 
     // ── Step 4: Block — same receiptNo ───────────────────────────────────────
     const blockRes = await loggedPost('/rprest/api/transaction/v1/blockunblockwalletandpoints', {
-      reqId: `BFLIN${txnBId}`, storeId: newMember.storeId, terminalId: '1',
+      reqId: `BFLIN${txnBId}`, storeId, terminalId: '1',
       receiptNo: `BFLIN${txnBId}`, reqTimeStamp: now(), cashierId: 'EMP001',
       channel: 'POS', memberId: newMember.memberId, blockReqType: 'BLOCK',
       blockSpecifications: [{ redeemType: 'POINTS', valueToBlock: pointsValue }],
@@ -1089,7 +1089,7 @@ describe('Exchange Sale — totalRefundValue > 0 (points redeemed before return)
 
     // ── Step 4b: Verify OTP — same receiptNo ─────────────────────────────────
     const verifyRes = await loggedPost('/rprest/api/transaction/v1/verify/otp/redemption', {
-      reqId: `BFLIN${txnBId}`, storeId: newMember.storeId, terminalId: '1',
+      reqId: `BFLIN${txnBId}`, storeId, terminalId: '1',
       receiptNo: `BFLIN${txnBId}`, reqTimeStamp: now(),
       cashierId: 'EMP001', channel: 'POS', mobileNumber: mobile,
       memberId: newMember.memberId, otp: '1111',
@@ -1100,7 +1100,7 @@ describe('Exchange Sale — totalRefundValue > 0 (points redeemed before return)
     const txnBItems = [defaultItem(1, { grossPrice: 200.00, netPrice: 190.00, vatAmount: 10.00 })];
     const confirmedPointsValue = parseFloat((blockRes.body.pointsValue ?? pointsValue).toFixed(2));
     const txnBRes = await callCommitTransaction(commitBody({
-      id: txnBId, storeId: newMember.storeId, memberId: newMember.memberId, channel: 'POS',
+      id: txnBId, storeId, memberId: newMember.memberId, channel: 'POS',
       items: txnBItems,
       tenderDetails: [
         { code: TENDER.POINTS, amount: confirmedPointsValue },
@@ -1109,13 +1109,13 @@ describe('Exchange Sale — totalRefundValue > 0 (points redeemed before return)
     }), ctx.token);
     expect(txnBRes.status).toBe(200);
     expect(txnBRes.body.status).toBe('Success'); // hard-fail — catches HTTP 200 with body failure
-    const afterTxnB = await isMember(ctx.token, mobile, 'POS');
+    const afterTxnB = await isMember(ctx.token, mobile, 'POS', storeId);
     expect(afterTxnB.pointsValue).toBeLessThan(afterTxnA.pointsValue); // points were redeemed
     console.log(`EXC-TC-016 | totalPoints: ${totalPoints} | pointsValue: ${pointsValue} | afterTxnB.pointsValue: ${afterTxnB.pointsValue}`);
 
     // ── Step 6: ExchangeLine for Transaction A ────────────────────────────────
     const exlRes = await callExchangeLine(ctx.token, {
-      storeId: newMember.storeId, memberId: newMember.memberId,
+      storeId, memberId: newMember.memberId,
       previousReceiptNo: txnAReceipt,
       itemDetails: [{ itemType: 'Product', quantity: 1, previousLineNo: 1, isReturn: 'Yes' }],
     });
@@ -1136,7 +1136,7 @@ describe('Exchange Sale — totalRefundValue > 0 (points redeemed before return)
     const retId = rnd();
     const retItems = [defaultItem(2, { grossPrice: 200.00, netPrice: 190.00, vatAmount: 10.00, previousLineNo: 1, isReturn: 'Yes' })];
     const retRes = await callCommitTransaction({
-      reqId: `BFLRET${retId}`, storeId: newMember.storeId, terminalId: '1',
+      reqId: `BFLRET${retId}`, storeId, terminalId: '1',
       receiptNo: `BFLRET${retId}`, reqTimeStamp: now(), cashierId: 'EMP001',
       channel: 'POS', memberId: newMember.memberId, commitRequestType: 'Complete',
       txnDate: now(), couponCodes: [],
@@ -1716,6 +1716,95 @@ describe('Exchange Sale — New Purchase Less Than Return Value', () => {
 
     expect(excRes.status).toBe(200);
     expect(excRes.body.status).toBe('Success');
+  });
+
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// EXC — Tier Upgrade Validation (new-item spend inside an Exchange Sale)
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('Exchange Sale — Tier Upgrade Validation', () => {
+
+  beforeAll(() => {
+    ctx.token = getToken();
+  });
+
+  // KNOWN GAP (see CLAUDE.md "Known API behaviours"): plain new-only purchases at/above
+  // the threshold DO upgrade tier (proven every run by jest.global-setup.ts's tier
+  // account provisioning), but this same net spend routed through an Exchange Sale
+  // (mixed isReturn Yes/No) commit does not. Points still accrue correctly on the new
+  // item — only the tier-upgrade evaluation appears to be skipped for this commit type.
+  // Assertion below encodes the CORRECT expected behaviour, so this test will FAIL
+  // until the tier engine also evaluates Exchange Sale commits.
+  test('EXC-TC-024: Exchange Sale — new item net spend crosses Explorer→Hunter threshold (AED 4001) → tier upgrades', async () => {
+    // ── Step 1: Register a brand-new POS member (clean slate, Explorer tier) ──
+    const mobile = '91' + String(7000000000 + Math.floor(Math.random() * 2999999999));
+    const regId = rnd();
+    const otpRegRes = await loggedPost('/rprest/api/transaction/v1/send/otp', {
+      reqId: `v${regId}`, storeId: STORE_ID, terminalId: '1', receiptNo: `v${regId}`,
+      reqTimeStamp: now(), cashierId: 'EMP001', channel: 'POS', country: 'IN',
+      mobileNumber: mobile, memberId: '', language: 'EN', notificationChannel: 'SMS',
+    }, ctx.token);
+    if (otpRegRes.status !== 200) { console.warn('EXC-TC-024: Registration OTP rate-limited — skipping'); return; }
+
+    const profileRes = await loggedPost('/rprest/api/transaction/v1/profile', {
+      reqId: otpRegRes.body.reqId, storeId: STORE_ID, terminalId: '1',
+      receiptNo: otpRegRes.body.receiptNo, reqTimeStamp: now(),
+      cashierId: 'EMP001', channel: 'POS', language: 'EN', dateOfBirth: '1995-06-15',
+      firstName: 'EXC024', lastName: 'TierUpgrade', mobileNumber: mobile,
+      emailId: `exc024tier${regId}@test.com`, gender: 'Male', country: 'IN',
+      city: '', nationality: 'IN', otp: '1111', mobileCountryCode: 'IN', requestType: 'New',
+    }, ctx.token);
+    if (profileRes.status !== 200) { console.warn(`EXC-TC-024: Registration failed (${profileRes.status}) — skipping`); return; }
+
+    const newMember = await isMember(ctx.token, mobile, 'POS');
+    expect(newMember.tier).toBe('Explorer');
+
+    // ── Step 2: Initial small purchase — gives us a receipt to return from ────
+    const purchaseReceipt = await createPurchase(
+      ctx.token, newMember.storeId, newMember.memberId,
+      [defaultItem(1, { grossPrice: 200.00, netPrice: 190.00, vatAmount: 10.00 })],
+      200.00,
+    );
+
+    // ── Step 3: ExchangeLine — return the small item ──────────────────────────
+    const exlRes = await callExchangeLine(ctx.token, {
+      storeId: newMember.storeId, memberId: newMember.memberId,
+      previousReceiptNo: purchaseReceipt,
+      itemDetails: [{ itemType: 'Product', quantity: 1, previousLineNo: 1, isReturn: 'Yes' }],
+    });
+    expect(exlRes.status).toBe(200);
+    const netRefund = calcNetRefund(exlRes.body);
+
+    // ── Step 4: Commit Exchange Sale — new item net spend (4200) crosses the ──
+    // Explorer→Hunter threshold (AED 4001 net) regardless of whether the API
+    // evaluates the raw new-item net or the post-return net transaction total.
+    const newItemNet = 4200.00;
+    const newItemVat = parseFloat((newItemNet * 0.05).toFixed(2));
+    const newItemGross = parseFloat((newItemNet + newItemVat).toFixed(2));
+    const excId = rnd();
+    const excItems = [
+      defaultItem(2, { grossPrice: 200.00, netPrice: 190.00, vatAmount: 10.00, previousLineNo: 1, isReturn: 'Yes' }),
+      defaultItem(3, { sku: '153837', hsnCode: '1123', grossPrice: newItemGross, netPrice: newItemNet, vatAmount: newItemVat, previousLineNo: 0, isReturn: 'No' }),
+    ];
+    const excRes = await callCommitTransaction({
+      reqId: `BFLEXC${excId}`, storeId: newMember.storeId, terminalId: '1',
+      receiptNo: `BFLEXC${excId}`, reqTimeStamp: now(), cashierId: 'EMP001',
+      channel: 'POS', memberId: newMember.memberId, commitRequestType: 'Complete',
+      txnDate: now(), couponCodes: [], language: 'EN',
+      itemDetails: excItems, previousReceiptNo: purchaseReceipt,
+      tenderDetails: buildExchangeTenders(netRefund, newItemGross),
+      billDetails: computeBillDetails(excItems, excId),
+    }, ctx.token);
+
+    expect(excRes.status).toBe(200);
+    expect(excRes.body.status).toBe('Success');
+
+    // ── Step 5: Verify tier upgraded to Hunter ─────────────────────────────────
+    const afterExchange = await isMember(ctx.token, mobile, 'POS');
+    console.log(`EXC-TC-024 | Tier before: ${newMember.tier} | Tier after Exchange Sale (new item net ${newItemNet}): ${afterExchange.tier}`);
+    expect(afterExchange.tier).toBe('Hunter');
   });
 
 });
